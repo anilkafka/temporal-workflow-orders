@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Processing — Temporal Workflow Demo</title>
+<style>
+  /* ── Tokens ── */
+  :root {
+    --black:    #0D0D0D;
+    --white:    #F7F6F3;
+    --gray-1:   #1A1A1A;
+    --gray-2:   #2A2A2A;
+    --gray-3:   #444;
+    --gray-4:   #888;
+    --gray-5:   #CCC;
+    --temporal: #1ABCFE;  /* Temporal brand blue */
+    --green:    #22C55E;
+    --red:      #EF4444;
+    --amber:    #F59E0B;
+    --radius:   8px;
+    --mono:     'JetBrains Mono', 'Fira Code', monospace;
+    --sans:     'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; }
+
+  /* ── Header ── */
+  header { margin-bottom: 48px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--temporal);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    color: var(--gray-4);
+    font-size: 15px;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+  .subtitle strong { color: var(--gray-5); font-weight: 500; }
+
+  /* ── Main grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--gray-1);
+    border: 1px solid var(--gray-2);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .3px;
+    margin-bottom: 20px;
+    color: var(--gray-5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--temporal);
+    flex-shrink: 0;
+  }
+
+  /* ── Form ── */
+  .field { margin-bottom: 14px; }
+  label {
+    display: block;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--gray-4);
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  input, select {
+    width: 100%;
+    background: var(--gray-2);
+    border: 1px solid var(--gray-3);
+    border-radius: 6px;
+    color: var(--white);
+    font-size: 14px;
+    font-family: var(--sans);
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--temporal); }
+  select option { background: var(--gray-2); }
+
+  /* ── Scenarios ── */
+  .scenarios {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .scenario-btn {
+    background: var(--gray-2);
+    border: 1px solid var(--gray-3);
+    border-radius: 6px;
+    color: var(--gray-5);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--sans);
+    padding: 10px 14px;
+    text-align: left;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .scenario-btn:hover { border-color: var(--temporal); color: var(--white); }
+  .scenario-btn.active { border-color: var(--temporal); background: #1ABCFE15; color: var(--white); }
+  .scenario-icon { font-size: 16px; flex-shrink: 0; }
+  .scenario-desc { font-size: 11px; color: var(--gray-4); margin-top: 2px; }
+
+  /* ── Submit button ── */
+  .submit-btn {
+    width: 100%;
+    background: var(--temporal);
+    border: none;
+    border-radius: 6px;
+    color: var(--black);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--sans);
+    padding: 12px;
+    transition: opacity .15s;
+    letter-spacing: .2px;
+  }
+  .submit-btn:hover { opacity: .85; }
+  .submit-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Workflow visualizer ── */
+  .workflow-panel { grid-column: span 1; }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-2);
+    position: relative;
+  }
+  .step:last-child { border-bottom: none; }
+
+  .step-connector {
+    position: absolute;
+    left: 15px;
+    top: 36px;
+    bottom: -12px;
+    width: 1px;
+    background: var(--gray-2);
+  }
+  .step:last-child .step-connector { display: none; }
+
+  .step-dot {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    border: 1.5px solid var(--gray-3);
+    background: var(--gray-1);
+    transition: all .3s;
+    position: relative;
+    z-index: 1;
+  }
+  .step-dot.pending  { border-color: var(--gray-3); color: var(--gray-4); }
+  .step-dot.running  { border-color: var(--temporal); color: var(--temporal); animation: pulse 1s infinite; }
+  .step-dot.done     { border-color: var(--green); background: #22C55E20; color: var(--green); }
+  .step-dot.failed   { border-color: var(--red); background: #EF444420; color: var(--red); }
+  .step-dot.skipped  { border-color: var(--amber); background: #F59E0B20; color: var(--amber); }
+  .step-dot.parallel { border-color: var(--temporal); background: #1ABCFE15; color: var(--temporal); }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 #1ABCFE44; }
+    50%       { box-shadow: 0 0 0 6px #1ABCFE00; }
+  }
+
+  .step-info { flex: 1; padding-top: 4px; }
+  .step-name { font-size: 13px; font-weight: 500; }
+  .step-detail {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--gray-4);
+    margin-top: 3px;
+    min-height: 16px;
+  }
+  .step-time {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--gray-4);
+    padding-top: 6px;
+  }
+
+  /* ── Parallel steps indicator ── */
+  .parallel-group {
+    margin: 4px 0 4px 44px;
+    border-left: 1px dashed var(--temporal);
+    padding-left: 14px;
+  }
+  .parallel-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--temporal);
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* ── Result banner ── */
+  .result {
+    margin-top: 20px;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 13px;
+    font-family: var(--mono);
+    display: none;
+    line-height: 1.7;
+  }
+  .result.success { background: #22C55E15; border: 1px solid #22C55E44; color: var(--green); }
+  .result.failed  { background: #EF444415; border: 1px solid #EF444444; color: var(--red); }
+  .result.show    { display: block; }
+
+  /* ── Log ── */
+  .log {
+    margin-top: 20px;
+    background: var(--black);
+    border: 1px solid var(--gray-2);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gray-4);
+    max-height: 160px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+  .log-line.ok   { color: var(--green); }
+  .log-line.err  { color: var(--red); }
+  .log-line.info { color: var(--temporal); }
+  .log-line.warn { color: var(--amber); }
+
+  /* ── UI link ── */
+  .ui-link {
+    margin-top: 16px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--gray-4);
+    text-align: center;
+  }
+  .ui-link a { color: var(--temporal); text-decoration: none; }
+  .ui-link a:hover { text-decoration: underline; }
+
+  /* ── Status badge ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: auto;
+  }
+  .status-badge.idle      { background: var(--gray-2); color: var(--gray-4); }
+  .status-badge.running   { background: #1ABCFE15; color: var(--temporal); }
+  .status-badge.completed { background: #22C55E15; color: var(--green); }
+  .status-badge.failed    { background: #EF444415; color: var(--red); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status-dot.pulse { animation: pulse-dot 1s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">Temporal SDK Demo — Python</div>
+    <h1>Order Processing<br>Workflow</h1>
+    <p class="subtitle">
+      Durable execution for e-commerce order flows.
+      Built to demonstrate how <strong>Temporal</strong> replaces
+      hand-rolled retry logic, dead letter queues, and saga patterns
+      with a single stateful workflow.
+    </p>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: Order form -->
+    <div class="card">
+      <div class="card-title">Submit Order</div>
+
+      <!-- Scenario presets -->
+      <div class="scenarios">
+        <button class="scenario-btn active" onclick="setScenario('success')" id="sc-success">
+          <span class="scenario-icon">✅</span>
+          <div>
+            <div>Happy path</div>
+            <div class="scenario-desc">All steps complete — payment approved, shipped</div>
+          </div>
+        </button>
+        <button class="scenario-btn" onclick="setScenario('payment_fail')" id="sc-payment_fail">
+          <span class="scenario-icon">💳</span>
+          <div>
+            <div>Payment failure</div>
+            <div class="scenario-desc">Payment declined → compensation restocks inventory</div>
+          </div>
+        </button>
+        <button class="scenario-btn" onclick="setScenario('out_of_stock')" id="sc-out_of_stock">
+          <span class="scenario-icon">📦</span>
+          <div>
+            <div>Out of stock</div>
+            <div class="scenario-desc">Inventory check fails → order cancelled immediately</div>
+          </div>
+        </button>
+      </div>
+
+      <div class="field">
+        <label>Order ID</label>
+        <input type="text" id="order_id" value="ord_8821">
+      </div>
+      <div class="field">
+        <label>SKU</label>
+        <input type="text" id="sku" value="sku_999">
+      </div>
+      <div class="field">
+        <label>Quantity</label>
+        <input type="number" id="qty" value="5" min="1">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" value="customer@example.com">
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="text" id="phone" value="+1-555-0100">
+      </div>
+      <div class="field">
+        <label>Shipping Address</label>
+        <input type="text" id="address" value="123 Main St, Boston MA">
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitOrder()">
+        Start Workflow →
+      </button>
+    </div>
+
+    <!-- RIGHT: Workflow visualizer -->
+    <div class="card workflow-panel">
+      <div class="card-title">
+        Workflow Execution
+        <span class="status-badge idle" id="status-badge">
+          <span class="status-dot"></span>
+          <span id="status-text">idle</span>
+        </span>
+      </div>
+
+      <!-- Steps -->
+      <div id="steps-container">
+
+        <div class="step" id="step-inventory">
+          <div class="step-dot pending" id="dot-inventory">1</div>
+          <div class="step-connector"></div>
+          <div class="step-info">
+            <div class="step-name">Check Inventory</div>
+            <div class="step-detail" id="detail-inventory">Waiting...</div>
+          </div>
+          <div class="step-time" id="time-inventory"></div>
+        </div>
+
+        <div class="step" id="step-invoice">
+          <div class="step-dot pending" id="dot-invoice">2</div>
+          <div class="step-connector"></div>
+          <div class="step-info">
+            <div class="step-name">Generate Invoice</div>
+            <div class="step-detail" id="detail-invoice">Waiting...</div>
+          </div>
+          <div class="step-time" id="time-invoice"></div>
+        </div>
+
+        <div class="step" id="step-payment">
+          <div class="step-dot pending" id="dot-payment">3</div>
+          <div class="step-connector"></div>
+          <div class="step-info">
+            <div class="step-name">Process Payment</div>
+            <div class="step-detail" id="detail-payment">Waiting...</div>
+          </div>
+          <div class="step-time" id="time-payment"></div>
+        </div>
+
+        <div class="step" id="step-warehouse">
+          <div class="step-dot pending" id="dot-warehouse">4</div>
+          <div class="step-connector"></div>
+          <div class="step-info">
+            <div class="step-name">Notify Warehouse</div>
+            <div class="step-detail" id="detail-warehouse">Waiting...</div>
+          </div>
+          <div class="step-time" id="time-warehouse"></div>
+        </div>
+
+        <div class="step" id="step-notify">
+          <div class="step-dot pending" id="dot-notify">5</div>
+          <div class="step-info">
+            <div class="step-name">Parallel Notifications</div>
+            <div class="step-detail" id="detail-notify">Waiting...</div>
+            <div class="parallel-group" id="parallel-group" style="display:none">
+              <div class="parallel-label">asyncio.gather — simultaneous</div>
+              <div class="step-detail" id="detail-email">📧 Email confirmation</div>
+              <div class="step-detail" id="detail-sms">📱 SMS update</div>
+              <div class="step-detail" id="detail-finance">📊 Finance report</div>
+            </div>
+          </div>
+          <div class="step-time" id="time-notify"></div>
+        </div>
+
+      </div>
+
+      <!-- Result -->
+      <div class="result" id="result-box"></div>
+
+      <!-- Log -->
+      <div class="log" id="log">
+        <div class="log-line info">// Submit an order to start the workflow</div>
+      </div>
+
+      <div class="ui-link">
+        Full execution history →
+        <a href="http://localhost:8233" target="_blank">localhost:8233</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let currentScenario = 'success';
+let pollingInterval = null;
+let stepTimers = {};
+let workflowStartTime = null;
+
+const scenarios = {
+  success: {
+    order_id: 'ord-' + Math.floor(Math.random()*9000+1000),
+    sku: 'sku_999', qty: 5,
+    force_fail_payment: false
+  },
+  payment_fail: {
+    order_id: 'ord-' + Math.floor(Math.random()*9000+1000),
+    sku: 'sku_999', qty: 2,
+    force_fail_payment: true
+  },
+  out_of_stock: {
+    order_id: 'ord-' + Math.floor(Math.random()*9000+1000),
+    sku: 'sku_888', qty: 99,
+    force_fail_payment: false
+  }
+};
+
+function setScenario(s) {
+  currentScenario = s;
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sc-' + s).classList.add('active');
+  const sc = scenarios[s];
+  document.getElementById('order_id').value = sc.order_id;
+  document.getElementById('sku').value = sc.sku;
+  document.getElementById('qty').value = sc.qty;
+  resetSteps();
+}
+
+function resetSteps() {
+  ['inventory','invoice','payment','warehouse','notify'].forEach(s => {
+    setStep(s, 'pending', 'Waiting...');
+    document.getElementById('time-' + s).textContent = '';
+  });
+  document.getElementById('parallel-group').style.display = 'none';
+  const rb = document.getElementById('result-box');
+  rb.className = 'result';
+  rb.textContent = '';
+  document.getElementById('log').innerHTML = '<div class="log-line info">// Submit an order to start the workflow</div>';
+  setStatus('idle');
+  stepTimers = {};
+}
+
+function setStep(id, state, detail) {
+  const dot = document.getElementById('dot-' + id);
+  dot.className = 'step-dot ' + state;
+  const icons = { pending:'•', running:'◌', done:'✓', failed:'✗', skipped:'—', parallel:'⟳' };
+  dot.textContent = icons[state] || '•';
+  document.getElementById('detail-' + id).textContent = detail;
+}
+
+function setStatus(state) {
+  const badge = document.getElementById('status-badge');
+  const dot = badge.querySelector('.status-dot');
+  badge.className = 'status-badge ' + state;
+  dot.className = 'status-dot' + (state === 'running' ? ' pulse' : '');
+  document.getElementById('status-text').textContent = state;
+}
+
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function elapsed(key) {
+  if (!stepTimers[key]) return '';
+  return ((Date.now() - stepTimers[key]) / 1000).toFixed(1) + 's';
+}
+
+// Simulate workflow execution visually
+// In a real deployment, poll /api/order/{id} for actual status
+async function simulateWorkflow(order) {
+  const isPayFail = order.force_fail_payment;
+  const isOutOfStock = order.sku === 'sku_888' && order.qty > 10;
+
+  setStatus('running');
+  workflowStartTime = Date.now();
+
+  // Step 1: Inventory
+  setStep('inventory', 'running', 'Checking stock...');
+  stepTimers.inventory = Date.now();
+  log('Checking inventory for ' + order.sku + ' × ' + order.qty);
+  await delay(1200);
+
+  if (isOutOfStock) {
+    setStep('inventory', 'failed', 'Insufficient stock — order cancelled');
+    document.getElementById('time-inventory').textContent = elapsed('inventory');
+    log('Inventory check failed — not enough stock', 'err');
+    showResult(false, 'Order cancelled — insufficient stock for ' + order.sku);
+    setStatus('failed');
+    return;
+  }
+
+  setStep('inventory', 'done', 'Stock confirmed');
+  document.getElementById('time-inventory').textContent = elapsed('inventory');
+  log('Inventory OK — stock available', 'ok');
+
+  // Step 2: Invoice
+  setStep('invoice', 'running', 'Generating invoice...');
+  stepTimers.invoice = Date.now();
+  await delay(800);
+  const total = (order.qty * 49.99).toFixed(2);
+  setStep('invoice', 'done', 'INV-' + order.order_id + ' — $' + total);
+  document.getElementById('time-invoice').textContent = elapsed('invoice');
+  log('Invoice generated: INV-' + order.order_id + ' $' + total, 'ok');
+
+  // Step 3: Payment
+  setStep('payment', 'running', 'Charging card...');
+  stepTimers.payment = Date.now();
+  log('Processing payment $' + total);
+  await delay(1500);
+
+  if (isPayFail) {
+    setStep('payment', 'failed', 'Payment declined — running compensation');
+    document.getElementById('time-payment').textContent = elapsed('payment');
+    log('Payment declined — triggering compensation', 'err');
+    await delay(600);
+    setStep('inventory', 'skipped', 'Restocked — ' + order.qty + ' units returned');
+    log('Compensation complete — inventory restocked', 'warn');
+    showResult(false, 'Payment declined. Inventory restocked. Order ' + order.order_id + ' cancelled.');
+    setStatus('failed');
+    return;
+  }
+
+  setStep('payment', 'done', 'TXN-' + order.order_id + ' approved');
+  document.getElementById('time-payment').textContent = elapsed('payment');
+  log('Payment approved: TXN-' + order.order_id, 'ok');
+
+  // Step 4: Warehouse
+  setStep('warehouse', 'running', 'Sending fulfillment request...');
+  stepTimers.warehouse = Date.now();
+  await delay(900);
+  setStep('warehouse', 'done', 'FUL-' + order.order_id + ' — ships in 2 days');
+  document.getElementById('time-warehouse').textContent = elapsed('warehouse');
+  log('Warehouse notified: FUL-' + order.order_id, 'ok');
+
+  // Step 5: Parallel notifications
+  setStep('notify', 'running', 'Sending notifications...');
+  stepTimers.notify = Date.now();
+  document.getElementById('parallel-group').style.display = 'block';
+  document.getElementById('detail-email').textContent = '📧 Sending...';
+  document.getElementById('detail-sms').textContent = '📱 Sending...';
+  document.getElementById('detail-finance').textContent = '📊 Updating...';
+  log('Running parallel notifications via asyncio.gather', 'info');
+
+  await delay(1000);
+  document.getElementById('detail-email').textContent = '📧 Confirmation sent';
+  await delay(200);
+  document.getElementById('detail-sms').textContent = '📱 SMS delivered';
+  await delay(200);
+  document.getElementById('detail-finance').textContent = '📊 Finance updated';
+  setStep('notify', 'done', 'All notifications delivered');
+  document.getElementById('time-notify').textContent = elapsed('notify');
+  log('All notifications delivered in parallel', 'ok');
+
+  showResult(true,
+    'Order ' + order.order_id + ' completed\n' +
+    'Invoice:     INV-' + order.order_id + '  ($' + total + ')\n' +
+    'Transaction: TXN-' + order.order_id + '\n' +
+    'Fulfillment: FUL-' + order.order_id + '\n' +
+    'Total time:  ' + ((Date.now() - workflowStartTime)/1000).toFixed(1) + 's'
+  );
+  setStatus('completed');
+}
+
+function showResult(ok, msg) {
+  const rb = document.getElementById('result-box');
+  rb.className = 'result show ' + (ok ? 'success' : 'failed');
+  rb.textContent = msg;
+}
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function submitOrder() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  resetSteps();
+
+  const order = {
+    order_id:           document.getElementById('order_id').value,
+    sku:                document.getElementById('sku').value,
+    qty:                parseInt(document.getElementById('qty').value),
+    email:              document.getElementById('email').value,
+    phone:              document.getElementById('phone').value,
+    shipping_address:   document.getElementById('address').value,
+    force_fail_payment: currentScenario === 'payment_fail',
+  };
+
+  log('Workflow started: order-' + order.order_id, 'info');
+
+  // Try real API first, fall back to simulation
+  try {
+    const resp = await fetch('http://localhost:8000/api/order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(order)
+    });
+    const data = await resp.json();
+    if (data.status === 'started') {
+      log('Connected to Temporal — workflow ID: ' + data.workflow_id, 'ok');
+    }
+  } catch(e) {
+    log('API not running — showing simulated execution', 'warn');
+  }
+
+  await simulateWorkflow(order);
+
+  // Reset for next run with new order ID
+  scenarios[currentScenario].order_id = 'ord-' + Math.floor(Math.random()*9000+1000);
+
+  btn.disabled = false;
+  btn.textContent = 'Start Workflow →';
+}
+
+// Init
+setScenario('success');
+</script>
+</body>
+</html>
