@@ -14,6 +14,7 @@ Run:
 import pytest
 from temporalio.testing import WorkflowEnvironment, ActivityEnvironment
 from temporalio.worker import Worker
+from temporalio.client import WorkflowFailureError
 
 from workflow import (
     OrderWorkflow,
@@ -208,7 +209,7 @@ async def test_out_of_stock_cancels_order(workflow_env):
         workflows=[OrderWorkflow],
         activities=ALL_ACTIVITIES,
     ):
-        with pytest.raises(Exception, match="Insufficient stock"):
+        with pytest.raises(WorkflowFailureError):
             await workflow_env.client.execute_workflow(
                 OrderWorkflow.run,
                 OUT_OF_STOCK_ORDER,
